@@ -89,7 +89,7 @@ class CustomImage(object):
 
     def connect_to_vmseries(self):
         tries = 6
-        host = self.cloud_client.public_ip
+        host = self.cloud_client.ip
         try:
             if self.config['cloud_provider'] == 'aws':
                 handler = PanosDevice(self.logger, host=host,
