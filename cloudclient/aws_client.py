@@ -30,11 +30,13 @@ class CloudAws(object):
                 'ec2',
                 aws_access_key_id=config["aws_access_key_id"],
                 aws_secret_access_key=config["aws_secret_access_key"],
+                aws_session_token=config["aws_session_token"],
                 region_name=config["region"])
             self.resource = boto3.resource(
                 'ec2',
                 aws_access_key_id=config["aws_access_key_id"],
                 aws_secret_access_key=config["aws_secret_access_key"],
+                aws_session_token=config["aws_session_token"],
                 region_name=config["region"])
             self.id = os.getpid()
             logger.info('Connection Successful.')
@@ -43,12 +45,17 @@ class CloudAws(object):
         self.config["username"] = "admin"
         self.config["pkey"] = config["pkey"]
         self.instance_id = ""
-        self.public_ip = ""
+        self.ip = ""
 
     def _get_public_ip(self):
         response = self.client.describe_instances(InstanceIds=[self.instance_id])
         public_ip = response['Reservations'][0]['Instances'][0]['PublicIpAddress']
         return public_ip
+
+    def _get_private_ip(self):
+        response = self.client.describe_instances(InstanceIds=[self.instance_id])
+        private_ip = response['Reservations'][0]['Instances'][0]['PrivateIpAddress']
+        return private_ip
 
     def create_instance(self):
         ami_id = self.config.get("ami_id")
@@ -56,6 +63,7 @@ class CloudAws(object):
         sg_id = self.config.get("sg_id")
         key_pair_name = self.config.get("key_pair_name")
         instance_type = self.config.get("instance_type", 'm5.xlarge')
+        ip_type = self.config.get("ip_type", 'public')
 
         waiter = self.client.get_waiter('instance_running')
         self.logger.info(f'*** Creating Instance ***')
@@ -93,8 +101,11 @@ class CloudAws(object):
         except Exception as e:
             self.logger.error(f'ERROR: Unable to deploy the instance: {str(e)}')
         self.instance_id = instance_id
-        self.public_ip = self._get_public_ip()
-        return {'instance_id': instance_id, 'ip': self.public_ip, 'user': 'admin'}
+        if ip_type == "private":
+          self.ip = self._get_public_ip()
+        else:
+          self.ip = self._get_private_ip()
+        return {'instance_id': instance_id, 'ip': self.ip, 'user': 'admin'}
 
     def terminate_instance(self):
         waiter = self.client.get_waiter('instance_terminated')
@@ -122,10 +133,32 @@ class CloudAws(object):
 
     def create_image(self, name):
         waiter = self.client.get_waiter('image_available')
-        create_request = self.client.create_image(InstanceId=self.instance_id,
-                                                  NoReboot=False,
-                                                  Name=f'{name}-{self.id}',
-                                                  Description='Custom Image created by Palo Alto Networks')
+        kms_key_id = self.config.get("kms_key_id", "")
+        description = self.config.get("ami_description", "Custom Image created by Palo Alto Networks")
+        create_request = None
+        if kms_key_id != "":
+            create_request = self.client.create_image(InstanceId=self.instance_id,
+                                                      NoReboot=False,
+                                                      BlockDeviceMappings=[
+                                                          {
+                                                              'DeviceName': '/dev/xvda',
+                                                              'Ebs': {
+                                                                  'DeleteOnTermination': True,
+                                                                  'VolumeSize': 60,
+                                                                  'VolumeType': 'gp2',
+                                                                  'KmsKeyId': kms_key_id,
+                                                                  'Encrypted': True
+                                                              },
+                                                          }
+                                                      ],
+                                                      Name=f'{name}-{self.id}',
+                                                      Description=description)
+        else:
+            create_request = self.client.create_image(InstanceId=self.instance_id,
+                                                      NoReboot=False,
+                                                      Name=f'{name}-{self.id}',
+                                                      Description=description)
+
         ami_id = create_request["ImageId"]
         self.logger.info(f'Waiting for the custom AMI {ami_id} to be available.')
         try:
