@@ -153,7 +153,6 @@ class CloudAws(object):
         if kms_key_id != "":
             self.logger.info(f'Encrypting ami with kms key {kms_key_id}')
             copy_request = self.client.copy_image(
-                ClientToken=self.id,
                 Description=description,
                 Encrypted=True,
                 KmsKeyId=kms_key_id,
