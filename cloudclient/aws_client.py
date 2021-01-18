@@ -135,29 +135,10 @@ class CloudAws(object):
         waiter = self.client.get_waiter('image_available')
         kms_key_id = self.config.get("kms_key_id", "")
         description = self.config.get("ami_description", "Custom Image created by Palo Alto Networks")
-        create_request = None
-        if kms_key_id != "":
-            create_request = self.client.create_image(InstanceId=self.instance_id,
-                                                      NoReboot=False,
-                                                      BlockDeviceMappings=[
-                                                          {
-                                                              'DeviceName': '/dev/xvda',
-                                                              'Ebs': {
-                                                                  'DeleteOnTermination': True,
-                                                                  'VolumeSize': 60,
-                                                                  'VolumeType': 'gp2',
-                                                                  'KmsKeyId': kms_key_id,
-                                                                  'Encrypted': True
-                                                              },
-                                                          }
-                                                      ],
-                                                      Name=f'{name}-{self.id}',
-                                                      Description=description)
-        else:
-            create_request = self.client.create_image(InstanceId=self.instance_id,
-                                                      NoReboot=False,
-                                                      Name=f'{name}-{self.id}',
-                                                      Description=description)
+        create_request = self.client.create_image(InstanceId=self.instance_id,
+                                                  NoReboot=False,
+                                                  Name=f'{name}-{self.id}-unencrypted',
+                                                  Description=description)
 
         ami_id = create_request["ImageId"]
         self.logger.info(f'Waiting for the custom AMI {ami_id} to be available.')
@@ -168,4 +149,26 @@ class CloudAws(object):
         except BaseException:
             self.logger.error('Unable to check availability of the new AMI.')
             result = False
+
+        if kms_key_id != "":
+            self.logger.info(f'Encrypting ami with kms key {kms_key_id}')
+            copy_request = self.client.copy_image(
+                ClientToken=self.id,
+                Description=description,
+                Encrypted=True,
+                KmsKeyId=kms_key_id,
+                Name=f'{name}-{self.id}',
+                SourceImageId=ami_id,
+                SourceRegion=self.region,
+                DryRun=False
+            )
+            ami_id = copy_request["ImageId"]
+            self.logger.info(f'Waiting for the copy AMI {ami_id} to be available.')
+            try:
+                waiter.wait(ImageIds=[ami_id])
+                result = True
+                self.logger.info(f'Copy AMI: {ami_id} has been created in region: {self.region}.')
+            except BaseException:
+                self.logger.error('Unable to check availability of the new copy AMI.')
+                result = False
         return result
