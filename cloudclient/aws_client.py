@@ -143,7 +143,12 @@ class CloudAws(object):
         ami_id = create_request["ImageId"]
         self.logger.info(f'Waiting for the custom AMI {ami_id} to be available.')
         try:
-            waiter.wait(ImageIds=[ami_id])
+            waiter.wait(ImageIds=[ami_id],
+                        WaiterConfig={
+                                'Delay': 60,
+                                'MaxAttempts': 240
+                            }
+                        )
             result = True
             self.logger.info(f'Custom AMI: {ami_id} has been created in region: {self.region}.')
         except BaseException:
@@ -164,7 +169,12 @@ class CloudAws(object):
             ami_id = copy_request["ImageId"]
             self.logger.info(f'Waiting for the copy AMI {ami_id} to be available.')
             try:
-                waiter.wait(ImageIds=[ami_id])
+                waiter.wait(ImageIds=[ami_id],
+                        WaiterConfig={
+                                'Delay': 60,
+                                'MaxAttempts': 240
+                            }
+                        )
                 result = True
                 self.logger.info(f'Copy AMI: {ami_id} has been created in region: {self.region}.')
             except BaseException:
