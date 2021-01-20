@@ -140,17 +140,17 @@ class CloudAws(object):
                                                   Name=f'{name}-{self.id}-unencrypted',
                                                   Description=description)
 
-        ami_id = create_request["ImageId"]
-        self.logger.info(f'Waiting for the custom AMI {ami_id} to be available.')
+        ami_id_custom = create_request["ImageId"]
+        self.logger.info(f'Waiting for the custom AMI {ami_id_custom} to be available.')
         try:
-            waiter.wait(ImageIds=[ami_id],
+            waiter.wait(ImageIds=[ami_id_custom],
                         WaiterConfig={
                                 'Delay': 60,
                                 'MaxAttempts': 240
                             }
                         )
             result = True
-            self.logger.info(f'Custom AMI: {ami_id} has been created in region: {self.region}.')
+            self.logger.info(f'Custom AMI: {ami_id_custom} has been created in region: {self.region}.')
         except BaseException:
             self.logger.error('Unable to check availability of the new AMI.')
             result = False
@@ -166,17 +166,21 @@ class CloudAws(object):
                 SourceRegion=self.region,
                 DryRun=False
             )
-            ami_id = copy_request["ImageId"]
-            self.logger.info(f'Waiting for the copy AMI {ami_id} to be available.')
+            ami_id_copy = copy_request["ImageId"]
+            self.logger.info(f'Waiting for the copy AMI {ami_id_copy} to be available.')
             try:
-                waiter.wait(ImageIds=[ami_id],
-                        WaiterConfig={
-                                'Delay': 60,
-                                'MaxAttempts': 240
-                            }
-                        )
+                waiter.wait(ImageIds=[ami_id_copy],
+                            WaiterConfig={
+                                    'Delay': 60,
+                                    'MaxAttempts': 240
+                                }
+                            )
                 result = True
-                self.logger.info(f'Copy AMI: {ami_id} has been created in region: {self.region}.')
+                self.logger.info(f'Copy AMI: {ami_id_copy} has been created in region: {self.region}.')
+                self.client.deregister_image(
+                    ImageId=ami_id_custom,
+                    DryRun=False
+                )
             except BaseException:
                 self.logger.error('Unable to check availability of the new copy AMI.')
                 result = False
