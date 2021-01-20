@@ -162,7 +162,7 @@ class CloudAws(object):
                 Encrypted=True,
                 KmsKeyId=kms_key_id,
                 Name=f'{name}-{self.id}',
-                SourceImageId=ami_id,
+                SourceImageId=ami_id_custom,
                 SourceRegion=self.region,
                 DryRun=False
             )
