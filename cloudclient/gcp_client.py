@@ -15,3 +15,6 @@
 class CloudGcp(object):
     def __init__(self, logger, config):
         logger.error("GCP is not supported yet.")
+
+    def get_from_secret(self, secret_key):
+        return secret_key

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import io
 
 import yaml
 import time
@@ -92,9 +93,17 @@ class CustomImage(object):
         host = self.cloud_client.ip
         try:
             if self.config['cloud_provider'] == 'aws':
-                handler = PanosDevice(self.logger, host=host,
-                                      user=self.cloud_client.config["username"],
-                                      ssh_key_file=self.cloud_client.config["pkey"])
+
+                ssh_key = self.cloud_client.config["pkey"]
+                secret = str(ssh_key).startswith("secret:")
+                if secret:
+                    handler = PanosDevice(self.logger, host=host,
+                                          user=self.cloud_client.config["username"],
+                                          ssh_key_object=self.cloud_client.get_private_key_from_secret(ssh_key))
+                else:
+                    handler = PanosDevice(self.logger, host=host,
+                                          user=self.cloud_client.config["username"],
+                                          ssh_key_file=self.cloud_client.config["pkey"])
             elif self.config['cloud_provider'] == 'azure':
                 handler = PanosDevice(self.logger, host=host,
                                       user=self.cloud_client.config["username"],
@@ -107,9 +116,16 @@ class CustomImage(object):
                 handler = None
                 try:
                     if self.config['cloud_provider'] == 'aws':
-                        handler = PanosDevice(self.logger, host=host,
-                                              user=self.cloud_client.config["username"],
-                                              ssh_key_file=self.cloud_client.config["pkey"])
+                        ssh_key = self.cloud_client.config["pkey"]
+                        secret = str(ssh_key).startswith("secret:")
+                        if secret:
+                            handler = PanosDevice(self.logger, host=host,
+                                                  user=self.cloud_client.config["username"],
+                                                  ssh_key_object=self.cloud_client.get_private_key_from_secret(ssh_key))
+                        else:
+                            handler = PanosDevice(self.logger, host=host,
+                                                  user=self.cloud_client.config["username"],
+                                                  ssh_key_file=self.cloud_client.config["pkey"])
                     elif self.config['cloud_provider'] == 'azure':
                         handler = PanosDevice(self.logger, host=host,
                                               user=self.cloud_client.config["username"],
@@ -125,7 +141,7 @@ class CustomImage(object):
 
     def license_firewall(self):
         if self.config['auth_code']:
-            self.handler.license(self.config['auth_code'])
+            self.handler.license(self.cloud_client.get_from_secret(self.config['auth_code']))
         else:
             self.logger.info(f'*** License Auth-code not provided. Skipping Licensing Step. ***')
 
@@ -298,7 +314,7 @@ class CustomImage(object):
 
     def private_data_reset(self):
         if self.config['api_key']:
-            self.handler.delicense(self.config['api_key'])
+            self.handler.delicense(self.cloud_client.get_from_secret(self.config['api_key']))
         else:
             self.logger.info(f'*** De-licensing API Key not provided. Skipping De-licensing Step. ***')
         self.handler.private_data_reset(self.config["cloud_provider"])

@@ -31,15 +31,21 @@ class PanosDevice(object):
         self.host = kwargs.get('host')
         self.connected = 0
         self.logger = logger
-        pkey = kwargs.get('ssh_key_file', None)
+        pkey_file = kwargs.get('ssh_key_file', None)
+        pkey_object = kwargs.get('ssh_key_object', None)
         password = kwargs.get('password', None)
         try:
             logger.info(f'*** Connecting to device {self.host} ***')
-            if pkey:
+            if pkey_file:
                 self.handle = Handle(logger,
                                      host=self.host,
                                      user=kwargs['user'],
-                                     ssh_key_file=pkey)
+                                     ssh_key_file=pkey_file)
+            elif pkey_object:
+                self.handle = Handle(logger,
+                                     host=self.host,
+                                     user=kwargs['user'],
+                                     ssh_key_object=pkey_object)
             else:
                 self.handle = Handle(logger,
                                      host=self.host,
@@ -239,12 +245,15 @@ class Handle(paramiko.client.SSHClient):
         host = kwargs.get('host')
         user = kwargs.get('user')
         ssh_key_file = kwargs.get('ssh_key_file', None)
+        ssh_key_object = kwargs.get('ssh_key_object', None)
         password = kwargs.get('password', None)
         try:
             super(Handle, self).__init__()
             self.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             if ssh_key_file:
                 self.connect(hostname=host, username=user, key_filename=ssh_key_file)
+            elif ssh_key_object:
+                self.connect(hostname=host, username=user, pkey=ssh_key_object)
             else:
                 self.connect(hostname=host, username=user, password=password)
             ssh_h = self.invoke_shell(width=160)

@@ -53,8 +53,8 @@ delicensing-api-key: '6********d'       # false for PAYG/Bundle 1 and Bundle 2
 ############## CUSTOM AMI ##############
 ########################################
 
-vm-series-plugin-version: 'vm_series-2.0.3' # false for not upgrading
-software-version: 'PanOS_vm-10.0.3'      # 'PanOS_vm-9.1.2-h1' / 'PanOSXFR_vm-9.0.5.xfr' / 'PanOS_vm-9.0.6'
+vm-series-plugin-version: 'vm_series-2.0.2' # false for not upgrading
+software-version: 'PanOS_vm-10.0.2'      # 'PanOS_vm-9.1.2-h1' / 'PanOSXFR_vm-9.0.5.xfr' / 'PanOS_vm-9.0.6'
 content-upgrade: true                   # false for not upgrading
 antivirus-upgrade: true                 # false for not upgrading
 global-protect-cvpn-upgrade: true       # false for not upgrading

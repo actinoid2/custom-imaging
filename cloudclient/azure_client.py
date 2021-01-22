@@ -177,3 +177,6 @@ class CloudAzure(object):
         self.logger.info('Custom Image creation complete.')
         self.logger.info(f'Custom Image ID: {image_id}')
         return True
+
+    def get_from_secret(self, secret_key):
+        return secret_key

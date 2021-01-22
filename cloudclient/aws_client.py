@@ -11,11 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import base64
+import io
+import json
 import os
 import time
 
 import boto3
+import paramiko
 
 
 class CloudAws(object):
@@ -28,6 +31,12 @@ class CloudAws(object):
         try:
             self.client = boto3.client(
                 'ec2',
+                aws_access_key_id=config["aws_access_key_id"],
+                aws_secret_access_key=config["aws_secret_access_key"],
+                aws_session_token=config["aws_session_token"],
+                region_name=config["region"])
+            self.secret = boto3.client(
+                'secretsmanager',
                 aws_access_key_id=config["aws_access_key_id"],
                 aws_secret_access_key=config["aws_secret_access_key"],
                 aws_session_token=config["aws_session_token"],
@@ -56,6 +65,72 @@ class CloudAws(object):
         response = self.client.describe_instances(InstanceIds=[self.instance_id])
         private_ip = response['Reservations'][0]['Instances'][0]['PrivateIpAddress']
         return private_ip
+
+    def get_from_secret(self, secret_key):
+        if type(secret_key) == str:
+            if str(secret_key).startswith("secret:"):
+                secret_name = str(secret_key).split(":", 1)[1]
+
+                try:
+                    response = self.secret.get_secret_value(
+                        SecretId=secret_name
+                    )
+                except Exception as e:
+                    self.logger.error(f'ERROR: Unable to extract secretsmanager secret {secret_key}: {str(e)}')
+                    raise e
+
+                else:
+                    if 'SecretString' in response:
+                        value = response['SecretString']
+                        try:
+                            secret_value = base64.b64decode(
+                                value
+                            )
+                        except Exception as e:
+                            secret_value = value
+                    else:
+                        value = response['SecretBinary']
+                        if type(value) == bytes:
+                            secret_value = response['SecretBinary'].decode("utf-8")
+                        elif type(value) == str:
+                            try:
+                                secret_value = base64.b64decode(
+                                    value
+                                )
+                            except Exception as e:
+                                secret_value = value
+
+                return secret_value
+
+        return secret_key
+
+    def get_private_key_from_secret(self, secret_key):
+        if type(secret_key) == str:
+            secret_value = self.get_from_secret(secret_key)
+
+            private_key_str = io.StringIO()
+            private_key_str.write(secret_value)
+            private_key_str.seek(0)
+
+            try:
+                if str(secret_value).__contains__("RSA"):
+                    key = paramiko.RSAKey.from_private_key(
+                        private_key_str
+                    )
+                else:
+                    key = paramiko.ECDSAKey.from_private_key(
+                        private_key_str
+                    )
+            except Exception as e:
+                self.logger.error(f'ERROR: Unable to extract private key from secret {secret_key}: {str(e)}')
+                raise e
+
+            private_key_str.close()
+            del private_key_str
+
+            return key
+
+        return secret_key
 
     def create_instance(self):
         ami_id = self.config.get("ami_id")
